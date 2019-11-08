@@ -6,9 +6,12 @@
 using namespace std;
 
 void Display(void);
+void Anim(void);
 
 int window_height = 600;
 int window_width = 1000;
+GLfloat  rotateCube = 0.0f;
+GLfloat  rotateBall = 0.0f;
 
 void initGL() {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
@@ -37,7 +40,8 @@ int main(int argc, char** argr)
 	glutInitWindowSize( window_width, window_height);
 	glutInitWindowPosition(50, 50); 
 	glutCreateWindow("Bouncing Ball");         
-	glutDisplayFunc(Display);       
+	glutDisplayFunc(Display);
+	glutIdleFunc(Anim);
 	glutReshapeFunc(reshape);       
 	initGL();                      
 	glutMainLoop();                 
@@ -51,7 +55,7 @@ void Display(void)
 
 	glLoadIdentity();                
 	glTranslatef(1.5f, 0.0f, -7.0f);
-	glRotatef(45.0f, 1.0f, 1.0f, 1.0f);
+	glRotatef(rotateCube, 1.0f, 1.0f, 1.0f);
 
 	glBegin(GL_QUADS);                
 	glColor3f(0.0f, 1.0f, 0.0f);     
@@ -94,8 +98,17 @@ void Display(void)
 	glColor3f(1.0, 0.0, 0.0);
 	glLoadIdentity();
 	glTranslatef(-1.5f, 0.0f, -7.0f);
-	glRotatef(45.0f, 1.0f, 0.0f, 0.0f);
+	glRotatef(rotateBall, 1.0f, 0.0f, 0.0f);
 	glutWireSphere(1.0, 20.0, 20.0);
 
 	glutSwapBuffers();
+}
+
+void Anim()
+{
+	if (rotateCube < 361.0f) rotateCube= rotateCube+0.1;
+	else rotateCube = 0.0f;
+	if (rotateBall < 361.0f) rotateBall = rotateBall +0.1;
+	else rotateBall = 0.0f;
+	glutPostRedisplay();
 }
