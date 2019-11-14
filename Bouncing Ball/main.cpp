@@ -104,7 +104,6 @@ void moveInDir(float speed, float DirX, float DirY,float DirZ,float ObX,float Ob
 	ballPosX = ObX + speed * (DirX - ObX);
 	ballPosY = ObY + speed * (DirY - ObY);
 	ballPosZ = ObZ + speed * (DirZ - ObZ);
-	printf("%f %f %f %f %f %f %f \n", speed, DirX, DirY, DirZ, ballPosX, ballPosY, ballPosZ);
 }
 
 int main(int argc, char** argr)
@@ -140,20 +139,19 @@ void Display(void)
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	gluLookAt(0, 10, 15, 0.0f, 5, 0.0f, 0.0f, 1.0f, 0.0f);
-	glTranslatef(0.0f,0.0f,camera);
-	//glRotatef(camera, 0.0f, 0.0f,1.0f);
+	gluLookAt(0, 10, 15, PointerX, PointerY, -10, 0.0f, 1.0f, 0.0f);
+	if (shoot == 1) {
+		glTranslatef(-ballPosX,5 - ballPosY, -ballPosZ);
+	}
 
 	drawAxes(5);
 	
 	glPushMatrix();
-	//glRotatef(rotAng, 0, 1, 0);
 	
 	if (shoot == 1) {
 		moveByPower += Power;
 		moveInDir(moveByPower, PointerX, PointerY, -10,0,5,0);
 		glTranslatef(ballPosX, ballPosY, ballPosZ);
-		//printf("%f %f %f %f \n", Power, ballPosX, ballPosY, ballPosZ);
 	}
 	else {
 		glTranslatef(0, 5, 0);
@@ -211,7 +209,6 @@ void spaceKey(unsigned char key, int x, int y) {
 	if (key == ' ')
 		Power += 0.002;
 	
-	//printf("%f", Power);
 	glutPostRedisplay();
 }
 
