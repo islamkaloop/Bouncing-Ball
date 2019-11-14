@@ -1,3 +1,3 @@
 ﻿  main.cpp
-D:\GUC\7th semester\DMET 502 Computer Graphics\Assignment2\code\Bouncing-Ball-dev\Bouncing-Ball-dev\Bouncing Ball\main.cpp(303,34): warning C4326: return type of 'main' should be 'int' instead of 'void'
+D:\GUC\7th semester\DMET 502 Computer Graphics\Assignment2\code\Bouncing-Ball-dev\Bouncing-Ball-dev\Bouncing Ball\main.cpp(226,34): warning C4326: return type of 'main' should be 'int' instead of 'void'
   Bouncing Ball.vcxproj -> D:\GUC\7th semester\DMET 502 Computer Graphics\Assignment2\code\Bouncing-Ball-dev\Bouncing-Ball-dev\Debug\Bouncing Ball.exe
