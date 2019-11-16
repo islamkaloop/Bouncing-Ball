@@ -222,8 +222,6 @@ float* Reflect(float V[], float N[])
 	o[0] = V[0] - 2.f * Dot * N[0];
 	o[1] = V[1] - 2.f * Dot * N[1];
 	o[2] = V[2] - 2.f * Dot * N[2];
-	//printf("%f %f %f %f %f %f %f %f %f %f\n", V[0], V[1], V[2], N[0], N[1], N[2], o[0], o[1], o[2],Dot );
-	//printf("----------------------------------");
 	return o;
 }
 //--------------------------------------- Main --------------------------------------------
@@ -251,18 +249,21 @@ int main(int argc, char** argv) {
 
 float start[3];
 float dir[3];
-int h = 0;
+int camerMode = 0;
 void Display(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0f, window_width / window_height, 0.05f, 100);
+	gluPerspective(60, window_width / window_height, 0.05f, 100);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	gluLookAt( eyeX, eyeY, eyeZ, eyeX, eyeY, 0, 0.0f, 1.0f, 0.0f);
+	if(camerMode == 1)
+		gluLookAt( eyeX, eyeY, ballPosZ+15, eyeX, eyeY, 0, 0.0f, 1.0f, 0.0f);
+	else
+		gluLookAt(eyeX, eyeY, ballPosZ + 15, ballPosX, ballPosY, 0, 0.0f, 1.0f, 0.0f);
 
 	glPushMatrix();
 
@@ -277,18 +278,12 @@ void Display(void)
 			dir[2] = -eyeX / 2;
 			starts = 0;
 		}
-		if (h == 1) {
-			moveByPower = Power;
-			h = 0;
-		}
 		
 		if (ballPosX >= dimensions[0]) {
 			float *dir1 = Reflect(dir, new float[3]{ 1,0,0 });
 			dir[0] = dir1[0];
 			dir[1] = dir1[1];
 			dir[2] = dir1[2];
-			h = 1;
-
 		}
 
 		if (ballPosX <= 0) {
@@ -296,22 +291,18 @@ void Display(void)
 			dir[0] = dir1[0];
 			dir[1] = dir1[1];
 			dir[2] = dir1[2];
-			h = 1;
 		}
 		if (ballPosY >= dimensions[1]) {
 			float* dir1 = Reflect(dir, new float[3]{ 0,-1,0 });
 			dir[0] = dir1[0];
 			dir[1] = dir1[1];
 			dir[2] = dir1[2];
-			h = 1;
 		}
 		if (ballPosY <= 0) {
 			float* dir1 = Reflect(dir, new float[3]{ 0,1,0 });
 			dir[0] = dir1[0];
 			dir[1] = dir1[1];
 			dir[2] = dir1[2];
-			h = 1;
-
 		}
 	
 		moveInDir(moveByPower, dir, start);
@@ -324,7 +315,7 @@ void Display(void)
 	glColor3f(0.0f, 1.0f, 1.0f);
 	glutSolidSphere(0.3, 20, 20);
 	glPopMatrix();
-	glColor3f(0.5f, 0.5f, 0.5f);
+	glColor3f(1.0f, 0.0f, 0.5f);
 	if (shoot == 0)
 		Arrow(eyeX , eyeY - 1, eyeZ-5, PointerX, PointerY, eyeZ - 5 - eyeX/2, 0.05);
 
@@ -333,7 +324,7 @@ void Display(void)
 	glPushMatrix();
 	glRotatef(-90, 1, 0, 0);
 	glTranslated(0.5, 0, 0.5);
-	DrawColoredWall(dimensions[0], dimensions[2], new double[3]{ 1,1,1 });
+	DrawColoredWall(dimensions[0], dimensions[2], new double[3]{ 0.5,0.5,0.5 });
 	glPopMatrix();
 
 	//------------- draw floor of the room
