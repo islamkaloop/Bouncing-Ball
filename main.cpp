@@ -1,10 +1,11 @@
 #include <iostream>
 #include <glut.h>
+#include <math.h>
 #define GLUT_KEY_ESCAPE 27
 #pragma comment(lib, "glut32.lib")
 #define RADPERDEG 0.0174533
 
-using namespace std;
+//using namespace std;
 
 //------------------------------- identifiers -------------------------------
 void Display(void);
@@ -21,27 +22,32 @@ int winX = 800;
 int winY = 600;
 
 // ------ dimensions --------
-int dimensions[] = { 7,7,7};
-double sphereRadius = 0.3;
+int dimensions[] = { 10,10,20 };
+//int dimensions[] = { 3,3,3 };
+double ballRadius = 0.3;
+int scaleX = 1;
+int scaleY = 1;
+int scaleZ = 2;
+
+// ------ prospective --------
+double fovy = 45;
 
 // ------ camera --------
 double eyeX = dimensions[0] / 2;
 double eyeY = (int)(dimensions[1] / 2) + 1;
-double eyeZ = dimensions[2] * 5;
+double eyeZ = dimensions[2];
 double centerX = eyeX;
 double centerY = eyeY;
-double centerZ = eyeZ / 2;
-
-// ------ prospective --------
-double fovy = 25;
+double centerZ = 0;
+int cameraMode = 1;					//1= simple_mode
 
 // ----------   Game model ---------
 int playerScore = 0;
 GLboolean ballHit = false;
-int hitVertical = 1;
-double sphereX = dimensions[0] / 2;
-double sphereY = dimensions[1] / 2;
-double sphereZ = dimensions[2]*2;
+double ballPosX = dimensions[0] / 2;
+double ballPosY = dimensions[1] / 2;
+double ballPosZ = dimensions[2]*scaleZ-10;
+int replayEnable = 0;
 
 //------------------- islam -------------------
 GLfloat  rotateCube = 0.0f;
@@ -51,90 +57,79 @@ int window_width = 1000;
 float rotAng;
 float camera = 0;
 float add = 0.01;
-float PointerX = eyeX;
-float PointerY = eyeY - 1;
-float PointerZ = 0;
-float Power = 0;
+float pointerX = ballPosX;
+float pointerY = ballPosY;
+float pointerZ = ballPosZ-ballRadius-5;
+float prevPointer[3];
+float power = 0;
 int shoot = 0;
-float ballPosX = eyeX;
-float ballPosY = eyeY - 1;
-float ballPosZ = eyeZ - 5;
 float moveByPower = 0;
-int starts = 1;
+int firstShoot = 1;
 
 float start[3];
 float dir[3];
-int camerMode = 0;
+
 //--------------------------------------- init --------------------------------------------
 void initGL() {
 }
 //--------------------------------------- Model --------------------------------------------
-void updateScore(double x, double y, double z) {
+void updateScore(double x, double y, double z, int isVertical) {
 	//------------- horizontal x,z
 	//------------- vertical   y,z
+	x += 0.5;
+	z += 0.5;
 	int modX;
 	int modY;
-	if (hitVertical == 1) {
-		modX = (int)(y) % 2;
-		modY = (int)(z) % 2;
+	if (isVertical == 1) {
+		modX = (int)(ceil(y)) % 2;
+		modY = (int)(ceil(z)) % 2;
 	}
 	else {
-		modX = (int)(x) % 2;
-		modY = (int)(z) % 2;
+		modX = (int)(ceil(x)) % 2;
+		modY = (int)(ceil(z)) % 2;
 	}
-
-	if (modX == hitVertical) {
+	printf("x: %f , y: %f , z:%f\n", ceil(x), ceil(y), ceil(z));
+	if (modX == isVertical) {
 		if (modY == 0) {
 			//offWhite
 			playerScore += 5;
+			printf("white\n");
 		}
 		else {
 			//blue
 			playerScore -= 5;
+			printf("blue\n");
 		}
 	}
 	else {
 		if (modY == 0) {
 			//red
 			playerScore += 10;
+			printf("red\n");
 		}
 		else {
 			//green
 			playerScore -= 10;
+			printf("green\n");
 		}
 
 	}
 }
-void isSphereHit() {
-	//------------- horizontal x,z
-	//------------- vertical   y,z
-	if (sphereY == 0 || sphereY == dimensions[1]) {
-		hitVertical = 0;
-		ballHit = true;
-	}
-	else {
-		if (sphereX == 0 || sphereX == dimensions[0]) {
-			hitVertical = 1;
-			ballHit = true;
-		}
-	}
-	if (ballHit) {
-		updateScore(sphereX, sphereY, sphereZ);
-		// reflect the ball so we need a direction vector
-	}
+
+void moveInDir(float speed, float Dir[], float initialPos[]) {
+	ballPosX = initialPos[0] + speed * Dir[0];
+	ballPosY = initialPos[1] + speed * Dir[1];
+	ballPosZ = initialPos[2] + speed * Dir[2];
 }
-void moveInDir(float speed, float Dir[], float Ob[]) {
-	ballPosX = Ob[0] + speed * Dir[0];
-	ballPosY = Ob[1] + speed * Dir[1];
-	ballPosZ = Ob[2] + speed * Dir[2];
-}
-float* Reflect(float V[], float N[])
+float* Reflect(float vector[], float normal[])
 {
-	float Dot = V[0] * N[0] + V[1] * N[1] + V[2] * N[2];
+	float Dot = vector[0] * normal[0] + vector[1] * normal[1] + vector[2] * normal[2];
 	float o[3];
-	o[0] = V[0] - 2.f * Dot * N[0];
-	o[1] = V[1] - 2.f * Dot * N[1];
-	o[2] = V[2] - 2.f * Dot * N[2];
+	o[0] = vector[0] - 2.f * Dot * normal[0];
+	o[1] = vector[1] - 2.f * Dot * normal[1];
+	o[2] = vector[2] - 2.f * Dot * normal[2];
+	updateScore(ballPosX, ballPosY, ballPosZ,0);
+	//printf("score:%d\n",playerScore);
 	return o;
 }
 
@@ -270,10 +265,17 @@ void DrawWall(int rowSize, int colSize, int isVertical) {
 				}
 
 			}
+			if (isVertical) {
+
+			}
+			else {
+				
+			}
 			DrawCube(new double[3]{ j,0,i }, new double[4]{ 0,0,0,0 }, new double[3]{ 1,1,1 }, color);
 		}
 	}
 }
+
 void DrawColoredWall(int rowSize, int colSize, double color[]) {
 	for (double i = 0; i < colSize; i++) {
 		for (double j = 0; j < rowSize; j++) {
@@ -290,45 +292,46 @@ void Display(void)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	//gluPerspective(60, window_width / window_height, 0.05f, 100);
 	gluPerspective(fovy, winX * 1.0 / winY, 0.001f, 100);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-
-	if (camerMode == 1) {
-		gluLookAt(eyeX, eyeY, ballPosZ + 15, eyeX, eyeY, 0, 0.0f, 1.0f, 0.0f);
+	
+	//----------------------------- camera --------------------------------
+	if (cameraMode == 1) {		// simple
+		gluLookAt(eyeX, eyeY, ballPosZ+10, centerX, centerY, centerZ, 0.0f, 1.0f, 0.0f);
+		//gluLookAt(0, ballPosY, ballPosZ, ballPosX, ballPosY, ballPosZ, 0.0f, 1.0f, 0.0f);
 		//gluLookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, 0.0, 1.0, 0.0);
 	}
 	else {
-		gluLookAt(eyeX, eyeY, ballPosZ + 15, ballPosX, ballPosY, 0, 0.0f, 1.0f, 0.0f);
+		gluLookAt(eyeX, eyeY, ballPosZ + 10, ballPosX, ballPosY, ballPosZ, 0.0f, 1.0f, 0.0f);
+		//gluLookAt(eyeX, eyeY, ballPosZ + 5, ballPosX, ballPosY, 0, 0.0f, 1.0f, 0.0f);
 		//gluLookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, 0.0, 1.0, 0.0);
 	}
 
-	
-	
-
-	
-
 	//------------- draw back wall of the room
+	
 	glPushMatrix();
 	glRotatef(-90, 1, 0, 0);
 	glTranslated(0.5, 0, 0.5);
-	DrawColoredWall(dimensions[0], dimensions[2], new double[3]{ 0,0,0 });
+	DrawColoredWall(dimensions[0], dimensions[1], new double[3]{ 0,0,0 });
 	glPopMatrix();
-
+	
 	//------------- draw floor of the room
+
 	glPushMatrix();
 	glTranslated(0.5, 0, 0.5);
-	glScalef(1, 1, 2);
+	glScalef(scaleX,scaleY,scaleZ);
 	DrawWall(dimensions[0], dimensions[2], 0);
 	glPopMatrix();
 
+	
+	
 	//------------- draw left wall of the room
 	glPushMatrix();
 	glRotatef(90, 0, 0, 1);
 	glTranslated(0.5, 0, 0.5);
-	glScalef(1, 1, 2);
+	glScalef(scaleX, scaleY, scaleZ);
 	DrawWall(dimensions[1], dimensions[2], 1);
 	glPopMatrix();
 	//------------- draw right wall of the room
@@ -336,41 +339,37 @@ void Display(void)
 	glTranslated(dimensions[0], 0, 0);
 	glRotatef(90, 0, 0, 1);
 	glTranslated(0.5, 0, 0.5);
-	glScalef(1, 1, 2);
+	glScalef(scaleX, scaleY, scaleZ);
 	DrawWall(dimensions[1], dimensions[2], 1);
 	glPopMatrix();
 
 	//------------- draw the ciel of the room
 	glPushMatrix();
 	glTranslated(0.5, dimensions[1], 0.5);
-	glScalef(1, 1, 2);
+	glScalef(scaleX, scaleY, scaleZ);
 	DrawWall(dimensions[0], dimensions[2], 0);
 	glPopMatrix();
-	
-	glPushMatrix();
-	glColor3f(1.0f, 0.0f, 0.5f);
+
+	//--------- draw arrow target ----------------
 	if (shoot == 0) {
-		//Arrow(eyeX, eyeY - 1, eyeZ - 5, PointerX, PointerY, eyeZ - 5 - eyeX / 2, 0.05);
-		//Arrow(sphereX, sphereY - 1, sphereZ - 5, PointerX, PointerY, eyeZ - 5 - eyeX / 2, 0.05);
-		Arrow(sphereX, sphereY, sphereZ, PointerX, PointerY, PointerZ, 0.05);
+		glColor3f(1.000, 0.871, 0.678);
+		Arrow(ballPosX, ballPosY, ballPosZ, pointerX, pointerY, pointerZ, 0.05);
 	}
-	drawAxes(1);
-	glPopMatrix();
+
 	//------------- draw the ball
-	
+
 	glPushMatrix();
 	if (shoot == 1) {
-		moveByPower = Power;
 		start[0] = ballPosX;
 		start[1] = ballPosY;
 		start[2] = ballPosZ;
-		if (starts == 1) {
-			dir[0] = PointerX - start[0];
-			dir[1] = PointerY - start[1];
+		if (firstShoot == 1) {
+			dir[0] = pointerX - start[0];
+			dir[1] = pointerY - start[1];
 			dir[2] = -eyeX / 2;
-			starts = 0;
+			firstShoot = 0;
 		}
-
+		
 		if (ballPosX >= dimensions[0]) {
 			float* dir1 = Reflect(dir, new float[3]{ 1,0,0 });
 			dir[0] = dir1[0];
@@ -396,19 +395,11 @@ void Display(void)
 			dir[1] = dir1[1];
 			dir[2] = dir1[2];
 		}
-
-		moveInDir(moveByPower, dir, start);
-		glTranslatef(ballPosX, ballPosY, ballPosZ);
-
+		moveInDir(power, dir, start);
 	}
-	else {
-		glTranslatef(eyeX, eyeY - 1, eyeZ - 5);
-	}
-	//glPopMatrix();
 	
-	//glPushMatrix();
-	//glTranslated(sphereX, sphereY, sphereZ);
-	DrawBall(sphereRadius, new double[3]{ 0.0f, 1.0f, 1.0f });
+	glTranslatef(ballPosX, ballPosY, ballPosZ);
+	DrawBall(ballRadius, new double[3]{ 0.0f, 1.0f, 1.0f });
 	glPopMatrix();
 
 
@@ -418,44 +409,62 @@ void Display(void)
 
 //--------------------------------------- Control --------------------------------------------
 void spaceKey(unsigned char key, int x, int y) {
-	switch (key)
-	{
-	case GLUT_KEY_ESCAPE:
-		exit(EXIT_SUCCESS);
-		break;
-	case ' ':
-		Power += 0.002;
-	}
+	if (shoot == 0) {
+		switch (key)
+		{
+		case GLUT_KEY_ESCAPE:
+			exit(EXIT_SUCCESS);
+			break;
+		case ' ':
+			power += 0.002;
+		}
 
-	glutPostRedisplay();
+		glutPostRedisplay();
+	}
 }
 void spaceKeyUp(unsigned char key, int x, int y) {
-	if (key == ' ')
-		shoot = 1;
-	glutPostRedisplay();
+	if (shoot == 0) {
+		switch (key) {
+		case ' ':
+			shoot = 1;
+			prevPointer[0] = pointerX;
+			prevPointer[1] = pointerY;
+			prevPointer[2] = pointerZ;
+			glutPostRedisplay();
+			break;
+		case 'r':
+			replayEnable=1;
+			break;
+		case 'c':
+			cameraMode= (cameraMode +1)%2;
+			break;
+		}	
+	}
 }
 void key(int key, int x, int y)
 {
-	switch (key)
-	{
-	case GLUT_KEY_UP:
-		if (PointerY < dimensions[0])
-			PointerY += 0.1;
-		break;
-	case GLUT_KEY_DOWN:
-		if (PointerY > 0)
-			PointerY -= 0.1;
-		break;
-	case GLUT_KEY_LEFT:
-		if (PointerX > 0)
-			PointerX -= 0.1;
-		break;
-	case GLUT_KEY_RIGHT:
-		if (PointerX < dimensions[1])
-			PointerX += 0.1;
-		break;
+	if (shoot == 0) {
+		switch (key)
+		{
+		case GLUT_KEY_UP:
+			if (pointerY < dimensions[0])
+				pointerY += 0.1;
+			break;
+		case GLUT_KEY_DOWN:
+			if (pointerY > 0)
+				pointerY -= 0.1;
+			break;
+		case GLUT_KEY_LEFT:
+			if (pointerX > 0)
+				pointerX -= 0.1;
+			break;
+		case GLUT_KEY_RIGHT:
+			if (pointerX < dimensions[1])
+				pointerX += 0.1;
+			break;
+		}
+		glutPostRedisplay();
 	}
-	glutPostRedisplay();
 
 }
 
@@ -516,17 +525,3 @@ void Anim()
 
 
 
-//--------------------------------------- Others --------------------------------------------
-void axis(double length) { // draw a z-axis, with cone at end  
-	glPushMatrix();
-
-	glBegin(GL_LINES);
-	glVertex3d(0, 0, 0);
-	glVertex3d(0, 0, length); // along the z-axis 
-	glEnd();
-
-	glTranslated(0, 0, length - 0.2);
-	glutWireCone(0.04, 0.2, 12, 9);
-
-	glPopMatrix();
-}
