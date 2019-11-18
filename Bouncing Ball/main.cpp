@@ -1,52 +1,137 @@
 #include <iostream>
+#include <sstream>
 #include <glut.h>
+#include <math.h>
 #define GLUT_KEY_ESCAPE 27
 #pragma comment(lib, "glut32.lib")
+#define RADPERDEG 0.0174533
 
 using namespace std;
 
 //------------------------------- identifiers -------------------------------
 void Display(void);
-void Anim(void);
 void axis(double length);
+void Anim(void);
 void key(int key, int x, int y);
 void spaceKey(unsigned char key, int x, int y);
 void spaceKeyUp(unsigned char key, int x, int y);
-void axis(double length);
+
 
 //------------------------------- variabes -------------------------------
-
-// ------ dimensions --------
-int dimensions[] = { 16,16,16 };
-double sphereRadius = 0.5;
-// ------ camera --------
-float eyeX = dimensions[0] / 2;
-float eyeY = (dimensions[1] / 2);
-float eyeZ = 50;
-// ------ prospective --------
-double fovy = 25;
 // ----------   Screen Size ---------
 int winX = 800;
 int winY = 600;
-GLfloat  rotateCube = 0.0f;
-GLfloat  rotateBall = 0.0f;
-int window_height = 600;
-int window_width = 1000;
-float rotAng;
-float camera=0;
-float add = 0.01;
-float PointerX = eyeX;
-float PointerY = eyeY-1;
-float Power = 0;
-int shoot = 0;
-float ballPosX = eyeX;
-float ballPosY = eyeY-1;
-float ballPosZ = eyeZ-5;
-float moveByPower = 0;
-int starts = 1;
-#define RADPERDEG 0.0174533
 
+// ------ dimensions --------
+int dimensions[] = { 10,10,20 };
+double ballRadius = 0.3;
+int scaleX = 1;
+int scaleY = 1;
+int scaleZ = 2;
+
+// ------ prospective --------
+double fovy = 45;
+
+// ------ camera --------
+double eyeX = dimensions[0] / 2;
+double eyeY = (int)(dimensions[1] / 2) + 1;
+double eyeZ = dimensions[2];
+double centerX = eyeX;
+double centerY = eyeY;
+double centerZ = 0;
+int cameraMode = 1;					//1= simple_mode
+
+// ----------   Game model ---------
+GLboolean ballHit = false;
+double ballPosX = dimensions[0] / 2;
+double ballPosY = dimensions[1] / 2;
+double ballPosZ = dimensions[2] * scaleZ - 10;
+
+//------------------- control -------------------
+float add = 0.01;
+float power = 0;
+int shoot = 0;
+float moveByPower = 0;
+int firstShoot = 1;
+float start[3];
+float dir[3];
+float pointerX = ballPosX;
+float pointerY = ballPosY;
+float pointerZ = ballPosZ - ballRadius - 5;
+float prevPointer[3];
+int replayEnable = 0;
+const int maxRound = 3;
+int currentRound = 1;
+int roundScore[maxRound];
+int allScore = 0;
+stringstream printString;
+int scoreForReplay = 0;
+
+
+//--------------------------------------- init --------------------------------------------
+void initGL() {
+}
 //--------------------------------------- Model --------------------------------------------
+int updateScore(double x, double y, double z, int isVertical) {
+	//------------- horizontal x,z
+	//------------- vertical   y,z
+	x += 0.5;
+	z += 0.5;
+	int modX;
+	int modY;
+	if (isVertical == 1) {
+		modX = (int)(ceil(y)) % 2;
+		modY = (int)(ceil(z)) % 2;
+	}
+	else {
+		modX = (int)(ceil(x)) % 2;
+		modY = (int)(ceil(z)) % 2;
+	}
+	printf("x: %f , y: %f , z:%f\n", ceil(x), ceil(y), ceil(z));
+	if (modX == isVertical) {
+		if (modY == 0) {
+			//offWhite
+			printf("white\n");
+			return 5;
+		}
+		else {
+			//blue
+			printf("blue\n");
+			return -5;
+		}
+	}
+	else {
+		if (modY == 0) {
+			//red
+			printf("red\n");
+			return 10;
+		}
+		else {
+			//green
+			printf("green\n");
+			return -10;
+		}
+
+	}
+}
+void moveInDir(float speed, float Dir[], float initialPos[]) {
+	ballPosX = initialPos[0] + speed * Dir[0];
+	ballPosY = initialPos[1] + speed * Dir[1];
+	ballPosZ = initialPos[2] + speed * Dir[2];
+}
+float* Reflect(float vector[], float normal[])
+{
+	float Dot = vector[0] * normal[0] + vector[1] * normal[1] + vector[2] * normal[2];
+	float o[3];
+	o[0] = vector[0] - 2.f * Dot * normal[0];
+	o[1] = vector[1] - 2.f * Dot * normal[1];
+	o[2] = vector[2] - 2.f * Dot * normal[2];
+	if(shoot == 1)
+		roundScore[currentRound-1] += updateScore(ballPosX, ballPosY, ballPosZ, 0);
+	else 
+		scoreForReplay += updateScore(ballPosX, ballPosY, ballPosZ, 0);
+	return o;
+}
 
 //--------------------------------------- View --------------------------------------------
 
@@ -102,32 +187,26 @@ void Arrow(GLdouble x1, GLdouble y1, GLdouble z1, GLdouble x2, GLdouble y2, GLdo
 	glPopMatrix();
 
 }
-
-void addScore(int x,int y,int z) {
-
-}
-
 void drawAxes(GLdouble length)
 {
-	glColor3f(1.0, 0.0, 0.0); // red x
 	glPushMatrix();
-	glTranslatef(-0.5f*length, 0, 0);
+	glColor3f(1.0, 0.0, 0.0); // red x
+	//glTranslatef(-0.5f * length, 0, 0);
 	Arrow(0, 0, 0, 2 * length, 0, 0, 0.1);
 	glPopMatrix();
 
-	glColor3f(0.0, 1.0, 0.0); // green y
 	glPushMatrix();
-	glTranslatef(0, -0.5f*length, 0);
+	glColor3f(0.0, 1.0, 0.0); // green y
+	//glTranslatef(0, -0.5f * length, 0);
 	Arrow(0, 0, 0, 0, 2 * length, 0, 0.1);
 	glPopMatrix();
 
-	glColor3f(0.0, 0.0, 1.0); // blue z
 	glPushMatrix();
-	glTranslatef(0, 0, -0.5f*length);
+	glColor3f(0.0, 0.0, 1.0); // blue z
+	//glTranslatef(0, 0, -0.5f * length);
 	Arrow(0, 0, 0, 0, 0, 2 * length, 0.1);
 	glPopMatrix();
 }
-
 void DrawCube(double translate[], double rotate[], double scale[], double color[]) {
 	glPushMatrix();
 	glTranslatef(translate[0], translate[1], translate[2]);
@@ -141,23 +220,14 @@ void DrawCube(double translate[], double rotate[], double scale[], double color[
 	glPopMatrix();
 
 }
-
 void DrawBall(double radius, double color[]) {
 	glPushMatrix();
 	glColor3f(color[0], color[1], color[2]);
-	glutSolidSphere(radius, 50, 50);
+	glutSolidSphere(radius, 20, 20);
 	glPopMatrix();
 
 }
-
-
 void DrawWall(int rowSize, int colSize, int isVertical) {
-	double color1[3] = { 1.000, 0.000, 0.000 };
-	double color2[3] = { 1.000, 0.271, 0.000 };
-	double color3[3] = { 1.000, 0.843, 0.000 };
-	double color4[3] = { 1.000, 0.843, 0.000 };
-
-
 	for (double i = 0; i < colSize; i++) {
 		int modX = (int)(i) % 2;
 		for (double j = 0; j < rowSize; j++) {
@@ -195,11 +265,16 @@ void DrawWall(int rowSize, int colSize, int isVertical) {
 				}
 
 			}
+			if (isVertical) {
+
+			}
+			else {
+
+			}
 			DrawCube(new double[3]{ j,0,i }, new double[4]{ 0,0,0,0 }, new double[3]{ 1,1,1 }, color);
 		}
 	}
 }
-
 void DrawColoredWall(int rowSize, int colSize, double color[]) {
 	for (double i = 0; i < colSize; i++) {
 		for (double j = 0; j < rowSize; j++) {
@@ -208,79 +283,107 @@ void DrawColoredWall(int rowSize, int colSize, double color[]) {
 		}
 	}
 }
-
-void moveInDir(float speed, float Dir[],float Ob[]) {
-	ballPosX = Ob[0] + speed * Dir[0];
-	ballPosY = Ob[1] + speed * Dir[1];
-	ballPosZ = Ob[2] + speed * Dir[2];
-}
-
-float* Reflect(float V[], float N[])
+//-----------------------------print on screen--------------------
+void print(int x, int y, string s)
 {
-	float Dot = V[0] * N[0] + V[1] * N[1] + V[2] * N[2];
-	float o [3];
-	o[0] = V[0] - 2.f * Dot * N[0];
-	o[1] = V[1] - 2.f * Dot * N[1];
-	o[2] = V[2] - 2.f * Dot * N[2];
-	return o;
-}
-//--------------------------------------- Main --------------------------------------------
-
-int main(int argc, char** argv) {
-	glutInit(&argc, argv);
-
-	glutInitWindowSize(window_width, window_height);
-	glutInitWindowPosition(50, 50);
-
-	glutCreateWindow("Bouncing Ball");
-	glutDisplayFunc(Display);
-	glutIdleFunc(Anim);
-	glutSpecialFunc(key);
-	glutKeyboardUpFunc(spaceKeyUp);
-	glutKeyboardFunc(spaceKey);
-
-	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-	glEnable(GL_DEPTH_TEST);
-
-	glutMainLoop();
+	glRasterPos2i(x, y);
+	for (string::iterator i = s.begin(); i != s.end(); ++i)
+	{
+		char c = *i;
+		glColor3d(1.0, 0.0, 0.0);
+		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, c);
+	}
 }
 
-float start[3];
-float dir[3];
-int camerMode = 0;
 void Display(void)
 {
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60, window_width / window_height, 0.05f, 100);
+	gluPerspective(fovy, winX * 1.0 / winY, 0.001f, 100);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	if(camerMode == 1)
-		gluLookAt( eyeX, eyeY, ballPosZ+15, eyeX, eyeY, 0, 0.0f, 1.0f, 0.0f);
-	else
-		gluLookAt(eyeX, eyeY, ballPosZ + 15, ballPosX, ballPosY, 0, 0.0f, 1.0f, 0.0f);
+
+	//----------------------------- camera --------------------------------
+	if (cameraMode == 1) {		// simple
+		gluLookAt(eyeX, eyeY, ballPosZ + 10, centerX, centerY, centerZ, 0.0f, 1.0f, 0.0f);
+		//gluLookAt(0, ballPosY, ballPosZ, ballPosX, ballPosY, ballPosZ, 0.0f, 1.0f, 0.0f);
+		//gluLookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, 0.0, 1.0, 0.0);
+	}
+	else {
+		gluLookAt(eyeX, eyeY, ballPosZ + 10, ballPosX, ballPosY, ballPosZ, 0.0f, 1.0f, 0.0f);
+		//gluLookAt(eyeX, eyeY, ballPosZ + 5, ballPosX, ballPosY, 0, 0.0f, 1.0f, 0.0f);
+		//gluLookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, 0.0, 1.0, 0.0);
+	}
+
+	//------------- draw back wall of the room
 
 	glPushMatrix();
+	glRotatef(-90, 1, 0, 0);
+	glTranslated(0.5, 0, 0.5);
+	DrawColoredWall(dimensions[0], dimensions[1], new double[3]{ 0,0,0 });
+	glPopMatrix();
 
-	if (shoot == 1) {
-		moveByPower = Power;
-		start[0] = ballPosX;
-		start[1] = ballPosY;
-		start[2] = ballPosZ;
-		if (starts == 1) {
-			dir[0] = PointerX - start[0];
-			dir[1] = PointerY - start[1];
+	//------------- draw floor of the room
+
+	glPushMatrix();
+	glTranslated(0.5, 0, 0.5);
+	glScalef(scaleX, scaleY, scaleZ);
+	DrawWall(dimensions[0], dimensions[2], 0);
+	glPopMatrix();
+
+
+
+	//------------- draw left wall of the room
+	glPushMatrix();
+	glRotatef(90, 0, 0, 1);
+	glTranslated(0.5, 0, 0.5);
+	glScalef(scaleX, scaleY, scaleZ);
+	DrawWall(dimensions[1], dimensions[2], 1);
+	glPopMatrix();
+	//------------- draw right wall of the room
+	glPushMatrix();
+	glTranslated(dimensions[0], 0, 0);
+	glRotatef(90, 0, 0, 1);
+	glTranslated(0.5, 0, 0.5);
+	glScalef(scaleX, scaleY, scaleZ);
+	DrawWall(dimensions[1], dimensions[2], 1);
+	glPopMatrix();
+
+	//------------- draw the ciel of the room
+	glPushMatrix();
+	glTranslated(0.5, dimensions[1], 0.5);
+	glScalef(scaleX, scaleY, scaleZ);
+	DrawWall(dimensions[0], dimensions[2], 0);
+	glPopMatrix();
+
+	//------------- draw the ball
+
+	glPushMatrix();
+	if (shoot == 1 || replayEnable == 1 ) {
+		if (firstShoot == 1 && shoot==1) {
+			start[0] = ballPosX;
+			start[1] = ballPosY;
+			start[2] = ballPosZ;
+			dir[0] = pointerX - start[0];
+			dir[1] = pointerY - start[1];
 			dir[2] = -eyeX / 2;
-			starts = 0;
+			prevPointer[0] = dir[0];
+			prevPointer[1] = dir[1];
+			prevPointer[2] = dir[2];
+			firstShoot = 0;
+			printf("%f %f %f %f %f %f %f %f %f\n", pointerX, pointerY, pointerZ,start[0],start[1],start[2],dir[0], dir[1], dir[2]);
+		}else if (firstShoot == 1) {
+			dir[0] = prevPointer[0];
+			dir[1] = prevPointer[1];
+			dir[2] = prevPointer[2];
+			firstShoot = 0;
 		}
-		
 		if (ballPosX >= dimensions[0]) {
-			float *dir1 = Reflect(dir, new float[3]{ 1,0,0 });
+			float* dir1 = Reflect(dir, new float[3]{ 1,0,0 });
 			dir[0] = dir1[0];
 			dir[1] = dir1[1];
 			dir[2] = dir1[2];
@@ -304,133 +407,173 @@ void Display(void)
 			dir[1] = dir1[1];
 			dir[2] = dir1[2];
 		}
-	
-		moveInDir(moveByPower, dir, start);
-		glTranslatef(ballPosX, ballPosY, ballPosZ);
-
+		moveInDir(power, dir, new float[3] {(float)ballPosX, (float)ballPosY, (float)ballPosZ});
 	}
+	//--------- draw arrow target ----------------
 	else {
-		glTranslatef(eyeX, eyeY - 1, eyeZ-5);
+		glColor3f(1.000, 0.871, 0.678);
+		Arrow(ballPosX, ballPosY, ballPosZ, pointerX, pointerY, pointerZ, 0.05);
 	}
-	glColor3f(0.0f, 1.0f, 1.0f);
-	glutSolidSphere(0.3, 20, 20);
-	glPopMatrix();
-	glColor3f(1.0f, 0.0f, 0.5f);
-	if (shoot == 0)
-		Arrow(eyeX , eyeY - 1, eyeZ-5, PointerX, PointerY, eyeZ - 5 - eyeX/2, 0.05);
 
-	drawAxes(5);
-	//------------- draw back wall of the room
-	glPushMatrix();
-	glRotatef(-90, 1, 0, 0);
-	glTranslated(0.5, 0, 0.5);
-	DrawColoredWall(dimensions[0], dimensions[2], new double[3]{ 0.5,0.5,0.5 });
+	glTranslatef(ballPosX, ballPosY, ballPosZ);
+	DrawBall(ballRadius, new double[3]{ 0.0f, 1.0f, 1.0f });
+	if (ballPosZ <= 0) {
+		ballPosX = start[0];
+		ballPosY = start[1];
+		ballPosZ = start[2];
+		pointerX = ballPosX;
+		pointerY = ballPosY;
+		pointerZ = ballPosZ - ballRadius - 5;
+		firstShoot = 1;
+		if (shoot == 1) {
+			allScore += roundScore[currentRound - 1];
+			++currentRound;
+		}
+		shoot = 0;
+		replayEnable = 0;
+	}
 	glPopMatrix();
-
-	//------------- draw floor of the room
-	int depthDiff = 5;
+	
+	glEnable(GL_TEXTURE_2D);
+	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
-	glTranslated(0.5, 0, 0.5);
-	glScalef(1, 1, 2);
-	DrawWall(dimensions[0], dimensions[2], 0);
-	glPopMatrix();
-
-	//------------- draw left wall of the room
+	glLoadIdentity();
+	gluOrtho2D(0.0, winX, 0.0, winY);
+	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
-	glRotatef(90, 0, 0, 1);
-	glTranslated(0.5, 0, 0.5);
-	glScalef(1, 1, 2);
-	DrawWall(dimensions[1], dimensions[0], 1);
+	glLoadIdentity();
+	glColor3f(1.0f, 0.0f, 0.0f);
+	if(cameraMode == 1)
+		print(winX*0.8, winY * .95, "Simple Mode");
+	else
+		print(winX * .8, winY * .95, "Rotating Mode");
+	printString.str("");
+	printString << "Total Score: " << allScore;
+	print(winX * 0.01, winY * .95, printString.str());
+	float c = 0.91;
+	for (int i = 1; i < currentRound; ++i) {
+		printString.str("");
+		printString <<  "Round "<<i<<" Score: " << roundScore[i-1];
+		print(winX * 0.01, winY* c, printString.str());
+		c -= 0.04;
+	}
+	printString.str("");
+	printString << currentRound;
+	print(winX * 0.49, winY* 0.95, printString.str());
+	if(shoot == 1) {
+		printString.str("");
+		printString << "Score: " << roundScore[currentRound - 1];
+		print(winX * 0.8, winY * 0.91, printString.str());
+	}
+	if (replayEnable == 1) {
+		printString.str("");
+		printString << "Score: " << scoreForReplay;
+		print(winX * 0.8, winY * 0.91, printString.str());
+	}
+	if (currentRound > maxRound) {
+		glColor3f(0.13333, .545, 0.1333);
+		glBegin(GL_QUADS);
+			glVertex2f(winX * .35, winY * .4);
+			glVertex2f(winX * .35, winY * .6);
+			glVertex2f(winX * .65, winY * .6);
+			glVertex2f(winX * .65, winY * .4);
+		glEnd();
+		glColor3f(1, 0, 0);
+		printString.str("");
+		print(winX * .44, winY * .52, "THE END");
+		printString << "Your Score is " << allScore;
+		print(winX * .39, winY * .48, printString.str());
+	}
+	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
-	//------------- draw right wall of the room
-	glPushMatrix();
-	glTranslated(dimensions[0], 0, 0);
-	glRotatef(90, 0, 0, 1);
-	glTranslated(0.5, 0, 0.5);
-	glScalef(1, 1, 2);
-	DrawWall(dimensions[1], dimensions[0], 1);
+	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
-
-	//------------- draw the ciel of the room
-	glPushMatrix();
-	glTranslated(0.5, dimensions[1], 0.5);
-	glScalef(1, 1, 2);
-	DrawWall(dimensions[0], dimensions[2], 0);
-	glPopMatrix();
+	glEnable(GL_TEXTURE_2D);
 
 	glutSwapBuffers();
+	glutPostRedisplay();
+	
 	glFlush();
 }
 
-void Anim()
-{
-	rotAng += 0.01;
-
-	camera += add;
-	if ((int)camera == 0) add = 0.01;
-	if ((int)camera == 10) add = -0.01;
-
-	glutPostRedisplay();
-}	
-
-
 //--------------------------------------- Control --------------------------------------------
-
 void spaceKey(unsigned char key, int x, int y) {
-	switch (key)
-	{
-	case GLUT_KEY_ESCAPE:
-		exit(EXIT_SUCCESS);
-		break;
-	case ' ':
-		Power += 0.002;
+	if (shoot == 0 && currentRound<=maxRound) {
+		switch (key) {
+		case ' ':
+			shoot = 1;
+			power = 0.02;
+			prevPointer[0] = pointerX;
+			prevPointer[1] = pointerY;
+			prevPointer[2] = pointerZ;
+			glutPostRedisplay();
+			break;
+		case 'r':
+			if (currentRound > 1) {
+				power = 0.002;
+				replayEnable = 1;
+			}
+			break;
+		case 'c':
+			cameraMode = (cameraMode + 1) % 2;
+			break;
+		case GLUT_KEY_ESCAPE:
+			exit(EXIT_SUCCESS);
+			break;
+		}
+		glutPostRedisplay();
 	}
-	
-	glutPostRedisplay();
-}
-
-void spaceKeyUp(unsigned char key, int x, int y) {
-	if (key == ' ')
-		shoot = 1;
-	glutPostRedisplay();
 }
 
 void key(int key, int x, int y)
 {
-	switch (key)
-	{
-	case GLUT_KEY_UP:
-		if(PointerY < dimensions[0])
-			PointerY += 0.1;
-		break;
-	case GLUT_KEY_DOWN:
-		if(PointerY > 0)
-			PointerY -= 0.1;
-		break;
-	case GLUT_KEY_LEFT:
-		if(PointerX > 0)
-			PointerX -= 0.1;
-		break;
-	case GLUT_KEY_RIGHT:
-		if (PointerX < dimensions[1])
-		PointerX += 0.1;
-		break;
+	if (shoot == 0 && currentRound <= maxRound) {
+		switch (key)
+		{
+		case GLUT_KEY_UP:
+			if (pointerY < dimensions[0])
+				pointerY += 0.1;
+			break;
+		case GLUT_KEY_DOWN:
+			if (pointerY > 0)
+				pointerY -= 0.1;
+			break;
+		case GLUT_KEY_LEFT:
+			if (pointerX > 0)
+				pointerX -= 0.1;
+			break;
+		case GLUT_KEY_RIGHT:
+			if (pointerX < dimensions[1])
+				pointerX += 0.1;
+			break;
+		}
+		glutPostRedisplay();
 	}
-	glutPostRedisplay();
 
 }
 
-//--------------------------------------- Others --------------------------------------------
-void axis(double length) { // draw a z-axis, with cone at end  
-	glPushMatrix();
+//--------------------------------------- Main --------------------------------------------
 
-	glBegin(GL_LINES);
-	glVertex3d(0, 0, 0);
-	glVertex3d(0, 0, length); // along the z-axis 
-	glEnd();
+int main(int argc, char** argv) {
+	initGL();
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
+	glEnable(GL_DEPTH_TEST);
+	glutInitWindowSize(winX, winY);
+	glutInitWindowPosition(0, 0);
+	glutCreateWindow("Bouncing Ball");
+	glutDisplayFunc(Display);
+	glClearColor(0.412f, 0.412f, 0.412f, 0.0f);  // background is gray  
+	glViewport(0, 0, winX, winY);  // x y width height
+	glutIdleFunc(Anim);
+	glutSpecialFunc(key);
+	glutKeyboardFunc(spaceKey);
+	glutMainLoop();
+}
 
-	glTranslated(0, 0, length - 0.2);
-	glutWireCone(0.04, 0.2, 12, 9);
 
-	glPopMatrix();
+
+void Anim()
+{
+	glutPostRedisplay();
 }
