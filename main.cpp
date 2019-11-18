@@ -129,8 +129,10 @@ float* Reflect(float vector[], float normal[])
 	o[0] = vector[0] - 2.f * Dot * normal[0];
 	o[1] = vector[1] - 2.f * Dot * normal[1];
 	o[2] = vector[2] - 2.f * Dot * normal[2];
-	updateScore(ballPosX, ballPosY, ballPosZ,0);
-	//printf("score:%d\n",playerScore);
+	if (replayEnable == 0) {
+		updateScore(ballPosX, ballPosY, ballPosZ,0);
+		printf("score:%d\n",playerScore);
+	}
 	return o;
 }
 void Anim(int val)
@@ -143,7 +145,7 @@ void Anim(int val)
 			if (replayEnable == 1) {
 				dir[0] = prevPointer[0] - start[0];
 				dir[1] = prevPointer[1] - start[1];
-				replayEnable = 0;
+				
 			}
 			else {
 				dir[0] = pointerX - start[0];
@@ -186,20 +188,24 @@ void Anim(int val)
 		}
 		moveInDir(start, power, dir);
 		if (ballPosZ < -1) {
-			shoot = 0;
-			firstShoot = 1;
 			//---------- reset ball position
 			ballPosX = ballPosInit[0];
 			ballPosY = ballPosInit[1];
 			ballPosZ = ballPosInit[2];
 			//---------- save aiming direction
-			prevPointer[0] = pointerX;
-			prevPointer[1] = pointerY;
-			prevPointer[2] = pointerZ;
+			if (replayEnable == 0) {
+				prevPointer[0] = pointerX;
+				prevPointer[1] = pointerY;
+				prevPointer[2] = pointerZ;
+			}
 			//---------- reset aiming direction
 			pointerX = ballPosX;
 			pointerY = ballPosY;
 			pointerZ = ballPosZ - ballRadius - 5;
+			//---------- reset variables
+			shoot = 0;
+			replayEnable = 0;
+			firstShoot = 1;
 		}
 		glutPostRedisplay();
 	}
