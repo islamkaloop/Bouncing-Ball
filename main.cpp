@@ -22,9 +22,9 @@ int winX = 800;
 int winY = 600;
 
 // ------ dimensions --------
-int dimensions[] = { 10,10,20 };
+int dimensions[] = { 10,10,15 };
 //int dimensions[] = { 3,3,3 };
-double ballRadius = 0.3;
+double ballRadius = 0.7;
 int scaleX = 1;
 int scaleY = 1;
 int scaleZ = 2;
@@ -46,22 +46,23 @@ int playerScore = 0;
 GLboolean ballHit = false;
 double ballPosX = dimensions[0] / 2;
 double ballPosY = dimensions[1] / 2;
-double ballPosZ = dimensions[2]*scaleZ-10;
+double ballPosZ = dimensions[2]*scaleZ;
+double ballPosInit[3] = {ballPosX,ballPosY,ballPosZ };
 int replayEnable = 0;
 
 //------------------- islam -------------------
 GLfloat  rotateCube = 0.0f;
 GLfloat  rotateBall = 0.0f;
-int window_height = 600;
-int window_width = 1000;
-float rotAng;
+
 float camera = 0;
 float add = 0.01;
 float pointerX = ballPosX;
 float pointerY = ballPosY;
 float pointerZ = ballPosZ-ballRadius-5;
 float prevPointer[3];
-float power = 0;
+float normalPower = 0.1;
+float slowPower = 0.03;
+float power = normalPower;
 int shoot = 0;
 float moveByPower = 0;
 int firstShoot = 1;
@@ -88,7 +89,7 @@ void updateScore(double x, double y, double z, int isVertical) {
 		modX = (int)(ceil(x)) % 2;
 		modY = (int)(ceil(z)) % 2;
 	}
-	printf("x: %f , y: %f , z:%f\n", ceil(x), ceil(y), ceil(z));
+	//printf("x: %f , y: %f , z:%f\n", ceil(x), ceil(y), ceil(z));
 	if (modX == isVertical) {
 		if (modY == 0) {
 			//offWhite
@@ -116,10 +117,10 @@ void updateScore(double x, double y, double z, int isVertical) {
 	}
 }
 
-void moveInDir(float speed, float Dir[], float initialPos[]) {
-	ballPosX = initialPos[0] + speed * Dir[0];
-	ballPosY = initialPos[1] + speed * Dir[1];
-	ballPosZ = initialPos[2] + speed * Dir[2];
+void moveInDir(float initialPos[],float power, float Dir[]) {
+	ballPosX = initialPos[0] + power * Dir[0];
+	ballPosY = initialPos[1] + power * Dir[1];
+	ballPosZ = initialPos[2] + power * Dir[2];
 }
 float* Reflect(float vector[], float normal[])
 {
@@ -132,7 +133,78 @@ float* Reflect(float vector[], float normal[])
 	//printf("score:%d\n",playerScore);
 	return o;
 }
+void Anim(int val)
+{
+	if (shoot == 1) {
+		start[0] = ballPosX;
+		start[1] = ballPosY;
+		start[2] = ballPosZ;
+		if (firstShoot == 1) {
+			if (replayEnable == 1) {
+				dir[0] = prevPointer[0] - start[0];
+				dir[1] = prevPointer[1] - start[1];
+				replayEnable = 0;
+			}
+			else {
+				dir[0] = pointerX - start[0];
+				dir[1] = pointerY - start[1];
+			}
+			dir[2] = -eyeX / 2;
+			firstShoot = 0;
+		}
+		else {
 
+			if (ballPosX >= dimensions[0]) {
+				float* dir1 = Reflect(dir, new float[3]{ 1,0,0 });
+				dir[0] = dir1[0];
+				dir[1] = dir1[1];
+				dir[2] = dir1[2];
+			}
+			else {
+
+				if (ballPosX <= 0) {
+					float* dir1 = Reflect(dir, new float[3]{ -1,0,0 });
+					dir[0] = dir1[0];
+					dir[1] = dir1[1];
+					dir[2] = dir1[2];
+				}
+			}
+			if (ballPosY >= dimensions[1]) {
+				float* dir1 = Reflect(dir, new float[3]{ 0,-1,0 });
+				dir[0] = dir1[0];
+				dir[1] = dir1[1];
+				dir[2] = dir1[2];
+			}
+			else {
+				if (ballPosY <= 0) {
+					float* dir1 = Reflect(dir, new float[3]{ 0,1,0 });
+					dir[0] = dir1[0];
+					dir[1] = dir1[1];
+					dir[2] = dir1[2];
+				}
+			}
+		}
+		moveInDir(start, power, dir);
+		if (ballPosZ < -1) {
+			shoot = 0;
+			firstShoot = 1;
+			//---------- reset ball position
+			ballPosX = ballPosInit[0];
+			ballPosY = ballPosInit[1];
+			ballPosZ = ballPosInit[2];
+			//---------- save aiming direction
+			prevPointer[0] = pointerX;
+			prevPointer[1] = pointerY;
+			prevPointer[2] = pointerZ;
+			//---------- reset aiming direction
+			pointerX = ballPosX;
+			pointerY = ballPosY;
+			pointerZ = ballPosZ - ballRadius - 5;
+		}
+		glutPostRedisplay();
+	}
+	glutTimerFunc(6, Anim, val);
+}
 //--------------------------------------- View --------------------------------------------
 
 void Arrow(GLdouble x1, GLdouble y1, GLdouble z1, GLdouble x2, GLdouble y2, GLdouble z2, GLdouble D)
@@ -299,12 +371,12 @@ void Display(void)
 	
 	//----------------------------- camera --------------------------------
 	if (cameraMode == 1) {		// simple
-		gluLookAt(eyeX, eyeY, ballPosZ+10, centerX, centerY, centerZ, 0.0f, 1.0f, 0.0f);
+		gluLookAt(eyeX, eyeY, ballPosZ+20, centerX, centerY, centerZ, 0.0f, 1.0f, 0.0f);
 		//gluLookAt(0, ballPosY, ballPosZ, ballPosX, ballPosY, ballPosZ, 0.0f, 1.0f, 0.0f);
 		//gluLookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, 0.0, 1.0, 0.0);
 	}
 	else {
-		gluLookAt(eyeX, eyeY, ballPosZ + 10, ballPosX, ballPosY, ballPosZ, 0.0f, 1.0f, 0.0f);
+		gluLookAt(eyeX, eyeY, ballPosZ + 20, ballPosX, ballPosY, ballPosZ, 0.0f, 1.0f, 0.0f);
 		//gluLookAt(eyeX, eyeY, ballPosZ + 5, ballPosX, ballPosY, 0, 0.0f, 1.0f, 0.0f);
 		//gluLookAt(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, 0.0, 1.0, 0.0);
 	}
@@ -349,7 +421,7 @@ void Display(void)
 	glScalef(scaleX, scaleY, scaleZ);
 	DrawWall(dimensions[0], dimensions[2], 0);
 	glPopMatrix();
-
+	
 	//--------- draw arrow target ----------------
 	if (shoot == 0) {
 		glColor3f(1.000, 0.871, 0.678);
@@ -359,84 +431,45 @@ void Display(void)
 	//------------- draw the ball
 
 	glPushMatrix();
-	if (shoot == 1) {
-		start[0] = ballPosX;
-		start[1] = ballPosY;
-		start[2] = ballPosZ;
-		if (firstShoot == 1) {
-			dir[0] = pointerX - start[0];
-			dir[1] = pointerY - start[1];
-			dir[2] = -eyeX / 2;
-			firstShoot = 0;
-		}
-		
-		if (ballPosX >= dimensions[0]) {
-			float* dir1 = Reflect(dir, new float[3]{ 1,0,0 });
-			dir[0] = dir1[0];
-			dir[1] = dir1[1];
-			dir[2] = dir1[2];
-		}
-
-		if (ballPosX <= 0) {
-			float* dir1 = Reflect(dir, new float[3]{ -1,0,0 });
-			dir[0] = dir1[0];
-			dir[1] = dir1[1];
-			dir[2] = dir1[2];
-		}
-		if (ballPosY >= dimensions[1]) {
-			float* dir1 = Reflect(dir, new float[3]{ 0,-1,0 });
-			dir[0] = dir1[0];
-			dir[1] = dir1[1];
-			dir[2] = dir1[2];
-		}
-		if (ballPosY <= 0) {
-			float* dir1 = Reflect(dir, new float[3]{ 0,1,0 });
-			dir[0] = dir1[0];
-			dir[1] = dir1[1];
-			dir[2] = dir1[2];
-		}
-		moveInDir(power, dir, start);
-	}
-	
 	glTranslatef(ballPosX, ballPosY, ballPosZ);
 	DrawBall(ballRadius, new double[3]{ 0.0f, 1.0f, 1.0f });
 	glPopMatrix();
 
-
-	glutSwapBuffers();
+	
+	//glutSwapBuffers();
 	glFlush();
 }
 
 //--------------------------------------- Control --------------------------------------------
 void spaceKey(unsigned char key, int x, int y) {
-	if (shoot == 0) {
-		switch (key)
-		{
-		case GLUT_KEY_ESCAPE:
-			exit(EXIT_SUCCESS);
-			break;
-		case ' ':
+	if (key == GLUT_KEY_ESCAPE) {
+		exit(EXIT_SUCCESS);
+	}
+	/*if (shoot == 0) {
+		if(key==' '){
 			power += 0.002;
 		}
-
-		glutPostRedisplay();
-	}
+	}*/
 }
 void spaceKeyUp(unsigned char key, int x, int y) {
 	if (shoot == 0) {
 		switch (key) {
 		case ' ':
 			shoot = 1;
-			prevPointer[0] = pointerX;
-			prevPointer[1] = pointerY;
-			prevPointer[2] = pointerZ;
+			power = normalPower;
 			glutPostRedisplay();
 			break;
 		case 'r':
-			replayEnable=1;
+			if (prevPointer[0] != NULL) {
+				replayEnable=1;
+				shoot = 1;
+				power = slowPower;
+				glutPostRedisplay();
+			}
 			break;
 		case 'c':
 			cameraMode= (cameraMode +1)%2;
+			glutPostRedisplay();
 			break;
 		}	
 	}
@@ -471,27 +504,6 @@ void key(int key, int x, int y)
 //--------------------------------------- Main --------------------------------------------
 
 int main(int argc, char** argv) {
-	/*
-	initGL();
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
-	glutInitWindowSize(winX, winY);
-	glutInitWindowPosition(50, 50);
-
-	glutCreateWindow("Bouncing Ball");
-	glutDisplayFunc(Display);
-	glutIdleFunc(Anim);
-	glutSpecialFunc(key);
-	glutKeyboardUpFunc(spaceKeyUp);
-	glutKeyboardFunc(spaceKey);
-
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-	glEnable(GL_DEPTH_TEST);
-
-	glutMainLoop();
-	*/
-
 	initGL();
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
@@ -501,27 +513,11 @@ int main(int argc, char** argv) {
 	glutCreateWindow("Bouncing Ball");
 	glutDisplayFunc(Display);
 	glClearColor(0.412f, 0.412f, 0.412f, 0.0f);  // background is gray  
+	glClearColor(0, 0, 0, 0.0f);  // background is black 
 	glViewport(0, 0, winX, winY);  // x y width height
-	glutIdleFunc(Anim);
 	glutSpecialFunc(key);
 	glutKeyboardUpFunc(spaceKeyUp);
 	glutKeyboardFunc(spaceKey);
-	//glutSpecialFunc(KeyboardSpecial);
+	glutTimerFunc(0, Anim, 0);
 	glutMainLoop();
 }
-
-
-
-void Anim()
-{
-	rotAng += 0.01;
-
-	camera += add;
-	if ((int)camera == 0) add = 0.01;
-	if ((int)camera == 10) add = -0.01;
-
-	glutPostRedisplay();
-}
-
-
-
