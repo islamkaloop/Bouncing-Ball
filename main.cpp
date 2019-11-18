@@ -4,8 +4,8 @@
 #define GLUT_KEY_ESCAPE 27
 #pragma comment(lib, "glut32.lib")
 #define RADPERDEG 0.0174533
-
-//using namespace std;
+#include <sstream>
+using namespace std;
 
 //------------------------------- identifiers -------------------------------
 void Display(void);
@@ -13,7 +13,7 @@ void axis(double length);
 void Anim(void);
 void key(int key, int x, int y);
 void spaceKey(unsigned char key, int x, int y);
-void spaceKeyUp(unsigned char key, int x, int y);
+void keyPressed(unsigned char key, int x, int y);
 
 
 //------------------------------- variabes -------------------------------
@@ -29,6 +29,7 @@ int scaleX = 1;
 int scaleY = 1;
 int scaleZ = 2;
 
+
 // ------ prospective --------
 double fovy = 45;
 
@@ -42,33 +43,41 @@ double centerZ = 0;
 int cameraMode = 1;					//1= simple_mode
 
 // ----------   Game model ---------
-int playerScore = 0;
-GLboolean ballHit = false;
+// rounds
+const int maxRound = 3;
+int currentRound = 1;
+// scores
+int totalScore = 0;
+int replayScore = 0;
+int roundScore = 0;
+int roundsScore[maxRound];
+//power
+float normalPower = 0.1;
+float slowPower = 0.03;
+float power = normalPower;
+//mode
+int shoot = 0;
+int replayEnable = 0;
+int firstShoot = 1;
+float start[3];
+float dir[3];
+//camera
+float camera = 0;
+
 double ballPosX = dimensions[0] / 2;
 double ballPosY = dimensions[1] / 2;
 double ballPosZ = dimensions[2]*scaleZ;
 double ballPosInit[3] = {ballPosX,ballPosY,ballPosZ };
-int replayEnable = 0;
 
-//------------------- islam -------------------
-GLfloat  rotateCube = 0.0f;
-GLfloat  rotateBall = 0.0f;
-
-float camera = 0;
-float add = 0.01;
+// ------ Arrow variables --------
 float pointerX = ballPosX;
 float pointerY = ballPosY;
-float pointerZ = ballPosZ-ballRadius-5;
+float pointerZ = ballPosZ - ballRadius - 5;
 float prevPointer[3];
-float normalPower = 0.1;
-float slowPower = 0.03;
-float power = normalPower;
-int shoot = 0;
-float moveByPower = 0;
-int firstShoot = 1;
 
-float start[3];
-float dir[3];
+
+// ------ print on the screen --------
+stringstream outputString;
 
 //--------------------------------------- init --------------------------------------------
 void initGL() {
@@ -93,27 +102,30 @@ void updateScore(double x, double y, double z, int isVertical) {
 	if (modX == isVertical) {
 		if (modY == 0) {
 			//offWhite
-			playerScore += 5;
-			printf("white\n");
+			replayScore += 20;
+			//printf("white\n");
 		}
 		else {
 			//blue
-			playerScore -= 5;
-			printf("blue\n");
+			replayScore -= 2;
+			//printf("blue\n");
 		}
 	}
 	else {
 		if (modY == 0) {
 			//red
-			playerScore += 10;
-			printf("red\n");
+			replayScore += 10;
+			//printf("red\n");
 		}
 		else {
 			//green
-			playerScore -= 10;
-			printf("green\n");
+			replayScore -= 4;
+			//printf("green\n");
 		}
-
+	}
+	if (replayEnable == 0) {
+		totalScore += replayScore;
+		roundsScore[currentRound-1] += replayScore;
 	}
 }
 
@@ -129,10 +141,8 @@ float* Reflect(float vector[], float normal[])
 	o[0] = vector[0] - 2.f * Dot * normal[0];
 	o[1] = vector[1] - 2.f * Dot * normal[1];
 	o[2] = vector[2] - 2.f * Dot * normal[2];
-	if (replayEnable == 0) {
-		updateScore(ballPosX, ballPosY, ballPosZ,0);
-		printf("score:%d\n",playerScore);
-	}
+	updateScore(ballPosX, ballPosY, ballPosZ,0);
+	
 	return o;
 }
 void Anim(int val)
@@ -193,10 +203,11 @@ void Anim(int val)
 			ballPosY = ballPosInit[1];
 			ballPosZ = ballPosInit[2];
 			//---------- save aiming direction
-			if (replayEnable == 0) {
+			if (replayEnable == 0) {		// a round has ended
 				prevPointer[0] = pointerX;
 				prevPointer[1] = pointerY;
 				prevPointer[2] = pointerZ;
+				currentRound++;
 			}
 			//---------- reset aiming direction
 			pointerX = ballPosX;
@@ -205,7 +216,9 @@ void Anim(int val)
 			//---------- reset variables
 			shoot = 0;
 			replayEnable = 0;
+			replayScore = 0;
 			firstShoot = 1;
+
 		}
 		glutPostRedisplay();
 	}
@@ -353,7 +366,6 @@ void DrawWall(int rowSize, int colSize, int isVertical) {
 		}
 	}
 }
-
 void DrawColoredWall(int rowSize, int colSize, double color[]) {
 	for (double i = 0; i < colSize; i++) {
 		for (double j = 0; j < rowSize; j++) {
@@ -362,7 +374,16 @@ void DrawColoredWall(int rowSize, int colSize, double color[]) {
 		}
 	}
 }
-
+void printOnScreen(int x, int y, string s)
+{
+	glRasterPos2i(x, y);
+	for (string::iterator i = s.begin(); i != s.end(); ++i)
+	{
+		char c = *i;
+		glColor3d(1.0, 0.0, 0.0);
+		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, c);
+	}
+}
 void Display(void)
 {
 
@@ -441,6 +462,59 @@ void Display(void)
 	DrawBall(ballRadius, new double[3]{ 0.0f, 1.0f, 1.0f });
 	glPopMatrix();
 
+	//------------------- Game Info ------------------
+	glEnable(GL_TEXTURE_2D);
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	gluOrtho2D(0.0, winX, 0.0, winY);
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+	glColor3f(1.0f, 0.0f, 0.0f);
+	if (cameraMode == 1)
+		printOnScreen(winX * 0.8, winY * .95, "Simple Mode");
+	else
+		printOnScreen(winX * .8, winY * .95, "Rotating Mode");
+	outputString.str("");
+	outputString << "Total Score: " << totalScore;
+	printOnScreen(winX * 0.01, winY * .95, outputString.str());
+	float c = 0.91;
+	for (int i = 1; i < currentRound; ++i) {
+		outputString.str("");
+		outputString << "Round " << i << " Score: " << roundsScore[i - 1];
+		printOnScreen(winX * 0.01, winY * c, outputString.str());
+		c -= 0.04;
+	}
+	outputString.str("");
+	outputString << (currentRound > 3 ? 3 : currentRound);
+	printOnScreen(winX * 0.49, winY * 0.95, outputString.str());
+	
+	outputString.str("");
+	outputString << "Score: " << replayScore;
+	printOnScreen(winX * 0.8, winY * 0.91, outputString.str());
+	
+	
+	if (currentRound > maxRound) {
+		glColor3f(0.13333, .545, 0.1333);
+		glBegin(GL_QUADS);
+		glVertex2f(winX * .35, winY * .4);
+		glVertex2f(winX * .35, winY * .6);
+		glVertex2f(winX * .65, winY * .6);
+		glVertex2f(winX * .65, winY * .4);
+		glEnd();
+		glColor3f(1, 0, 0);
+		outputString.str("");
+		printOnScreen(winX * .44, winY * .52, "THE END");
+		outputString << "Your Score is " << totalScore;
+		printOnScreen(winX * .39, winY * .48, outputString.str());
+	}
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
+	glEnable(GL_TEXTURE_2D);
 	
 	//glutSwapBuffers();
 	glFlush();
@@ -457,13 +531,15 @@ void spaceKey(unsigned char key, int x, int y) {
 		}
 	}*/
 }
-void spaceKeyUp(unsigned char key, int x, int y) {
+void keyPressed(unsigned char key, int x, int y) {
 	if (shoot == 0) {
 		switch (key) {
 		case ' ':
-			shoot = 1;
-			power = normalPower;
-			glutPostRedisplay();
+			if (currentRound<=maxRound) {
+				shoot = 1;
+				power = normalPower;
+				glutPostRedisplay();
+			}
 			break;
 		case 'r':
 			if (prevPointer[0] != NULL) {
@@ -522,7 +598,7 @@ int main(int argc, char** argv) {
 	glClearColor(0, 0, 0, 0.0f);  // background is black 
 	glViewport(0, 0, winX, winY);  // x y width height
 	glutSpecialFunc(key);
-	glutKeyboardUpFunc(spaceKeyUp);
+	glutKeyboardUpFunc(keyPressed);
 	glutKeyboardFunc(spaceKey);
 	glutTimerFunc(0, Anim, 0);
 	glutMainLoop();
